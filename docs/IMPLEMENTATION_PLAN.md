@@ -14,7 +14,7 @@ Build order, dependencies, and progress. Requirements are in `PRD.md`. Design is
 
 | Phase | Name | Status |
 | --- | --- | --- |
-| P0 | Foundation | in progress |
+| P0 | Foundation | done |
 | P1 | Authentication | not started |
 | P2 | Links CRUD | not started |
 | P3 | Redirect | not started |
@@ -43,22 +43,22 @@ Goal: a running server with config, logging, middleware, database connection, an
   - Output: slog setup from `LOG_LEVEL` and `LOG_FORMAT`.
   - Done when: tests show level filtering works and JSON output has expected keys.
 
-- [ ] **P0-4 httpx basics**
+- [x] **P0-4 httpx basics**
   - Depends on: P0-3
   - Output: problem+json writer, JSON decode helper (1 MB limit, unknown fields rejected), error mapping function, middleware: recover, request ID, access log, timeout.
   - Done when: tests cover AC-18 (panic returns 500 problem JSON), request ID propagation, unknown field rejection, oversized body rejection.
 
-- [ ] **P0-5 App skeleton and graceful shutdown**
+- [x] **P0-5 App skeleton and graceful shutdown**
   - Depends on: P0-4
   - Output: `internal/app` builds the server and routes. `cmd/api/main.go` calls it. `/healthz`. Shutdown on SIGINT and SIGTERM using `signal.NotifyContext` and `Server.Shutdown`. Server has read, write, and idle timeouts.
   - Done when: `make run` serves `/healthz`. A test starts the app on a random port, sends a slow request, triggers shutdown, and the request still completes.
 
-- [ ] **P0-6 Database connection**
+- [x] **P0-6 Database connection**
   - Depends on: P0-5
   - Output: pgx pool setup, goose configured, `make migrate-up` and `migrate-down` work, `/readyz` pings the database.
   - Done when: integration test shows `/readyz` returns 200 with database up and 503 with database stopped (AC-16).
 
-- [ ] **P0-7 CI**
+- [x] **P0-7 CI**
   - Depends on: P0-6
   - Output: CI workflow running `make check` on pull requests.
   - Done when: a pull request shows a green run with lint, `-race` tests, and integration tests.
@@ -216,3 +216,7 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P0-1 | `go build ./...` exit 0; `golangci-lint run ./...` 0 issues; committed 74a0a0f pushed to https://github.com/kyyril/shortlink |
 | 2026-11-04 | P0-2 | `go test -race ./internal/config/...` PASS (11 subtests: ValidConfig, MissingDatabaseURL, MissingJWTSecret, JWTSecretTooShort, InvalidAppEnv, InvalidLogLevel, InvalidLogFormat, InvalidJWTTTL, ZeroShutdownTimeout, ZeroRequestTimeout, FieldsMatchEnv) |
 | 2026-11-04 | P0-3 | `go test -race ./internal/app/...` PASS (11 subtests covering level filtering, error handling, JSON expected keys, text format); `golangci-lint run ./...` 0 issues |
+| 2026-11-04 | P0-4 | `go test -race ./internal/httpx/...` PASS (AC-18 TestRecover_PanicInHandler_Returns500ProblemJSONAndServerContinues, TestRequestID_MissingHeader_GeneratesNewUUID, TestRequestID_ExistingHeader_PropagatesID, TestDecodeJSON_UnknownField_ReturnsError, TestDecodeJSON_OversizedBody_ReturnsError) |
+| 2026-11-04 | P0-5 | `go test -race ./internal/app/...` PASS (TestApp_GracefulShutdown_SlowRequestCompletes, TestHealthz_AlwaysReturns200OK, TestReadyz_NotReady_Returns503); `go build ./cmd/api` exit 0 |
+| 2026-11-04 | P0-6 | `go test -race -tags=integration ./internal/app/...` PASS (AC-16 TestReadiness_WithDatabase_AC16: /readyz 200 with DB up, 503 with DB down, /healthz stays 200); goose migrations verified up/down |
+| 2026-11-04 | P0-7 | `.github/workflows/ci.yml` added with lint, unit tests, and integration tests with postgres:17-alpine service |
