@@ -116,7 +116,7 @@ redirect handler -> recorder.Record(event)    non-blocking
                    buffered channel (CLICK_BUFFER_SIZE)
                          |
                    one worker goroutine
-                         |  flush when 100 events or every 1 second
+                         |  flush when 100 events or every 500ms
                    store.InsertClicks(batch)
 ```
 
@@ -173,8 +173,8 @@ Each row says what we chose, what else was possible, the cost of our choice, and
 
 Ordered by likelihood:
 
-1. Prometheus `/metrics` and OpenTelemetry tracing.
-2. Idempotency-Key support on `POST /v1/links`.
-3. Cache for redirect lookups (in-process LRU first, Redis later).
-4. Refresh tokens and logout.
-5. Split the click recorder into a separate consumer reading from a queue.
+1. Cache for redirect lookups (in-process LRU first, Redis later).
+2. Refresh tokens and logout.
+3. Split the click recorder into a separate consumer reading from a queue.
+4. Custom short domains per user.
+5. Link editing (update target URL without changing the code).

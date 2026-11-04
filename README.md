@@ -240,8 +240,29 @@ db/
   ├── migrations/           # Versioned Goose SQL schema migrations
   └── queries/              # Pure SQL queries compiled by sqlc
 api/
-  └── openapi.yaml          # OpenAPI 3.0 API contract
+  ├── openapi.yaml          # OpenAPI 3.0 API contract (single source of truth)
+  └── embed.go              # Embeds openapi.yaml into the binary at build time
+docs/
+  ├── ARCHITECTURE.md       # Layers, packages, data model, decisions & trade-offs
+  ├── PRD.md                # Product requirements and acceptance criteria
+  ├── SYSTEM_DESIGN.md      # System design deep-dive (capacity, evolution path, interview prep)
+  ├── IMPLEMENTATION_PLAN.md# Task breakdown, build order, and evidence log
+  └── TESTING.md            # Testing policy and patterns
 ```
+
+---
+
+## Documentation
+
+Design and engineering documents live in the [`docs/`](docs/) folder:
+
+| Document | Purpose |
+| --- | --- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layers, packages, data model, middleware order, error model, decisions & trade-offs |
+| [`docs/PRD.md`](docs/PRD.md) | Product requirements, acceptance criteria, and non-goals |
+| [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md) | System design deep-dive: capacity estimation, evolution path at scale, interview Q&A |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Task breakdown, build order, done criteria, and evidence log |
+| [`docs/TESTING.md`](docs/TESTING.md) | Testing policy, patterns, and conventions |
 
 ---
 
