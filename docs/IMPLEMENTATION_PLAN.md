@@ -18,7 +18,7 @@ Build order, dependencies, and progress. Requirements are in `PRD.md`. Design is
 | P1 | Authentication | done |
 | P2 | Links CRUD | done |
 | P3 | Redirect | done |
-| P4 | Click recording and stats | not started |
+| P4 | Click recording and stats | done |
 | P5 | Hardening | not started |
 | P6 | Delivery | not started |
 
@@ -157,7 +157,7 @@ Goal: async click capture that never slows the redirect.
   - Output: redirect calls `Record`. `GET /v1/links/{code}/stats` returns total and per-day counts for the owner.
   - Done when: e2e test covers AC-13. Another user gets 404 on stats.
 
-- [ ] **P4-4 Shutdown order**
+- [x] **P4-4 Shutdown order**
   - Depends on: P4-3
   - Output: shutdown sequence from ARCHITECTURE section 8, including `/readyz` going to 503 first.
   - Done when: integration test covers AC-15 (clicks buffered, SIGTERM, rows present after exit).
@@ -234,3 +234,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P4-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestClickRepo_BatchInsertAndStats: batch copy insert, count total, clicks per day with zero-click days omitted); migration 00004_create_clicks.sql |
 | 2026-11-04 | P4-2 | `go test -race ./internal/click/...` PASS (AC-14 full buffer drops without blocking, flush by size, flush by interval, drain on close with zero time.Sleep) |
 | 2026-11-04 | P4-3 | `go test -race -tags=integration ./internal/app/...` PASS (AC-13 TestE2E_ClickRecorderAndStats: 3 redirects produce 3 clicks in stats after drain, non-owner gets 404) |
+| 2026-11-04 | P4-4 | `go test -race -tags=integration ./internal/app/...` PASS (AC-15 TestShutdown_BufferedClicksFlushed_AC15: clicks buffered, SIGTERM/cancel triggered, all clicks flushed before exit) |

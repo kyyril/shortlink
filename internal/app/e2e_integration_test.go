@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/kyyril/shortlink/internal/app"
 	"github.com/kyyril/shortlink/internal/auth"
 	"github.com/kyyril/shortlink/internal/click"
@@ -367,5 +369,126 @@ func TestE2E_ClickRecorderAndStats(t *testing.T) {
 	rec = doJSON(t, handler, http.MethodGet, "/v1/links/"+code+"/stats", nil, otherBearer)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("other user stats: status = %d, want 404", rec.Code)
+	}
+}
+
+// helper to create a test link in database
+func createTestLink(t *testing.T, userRepo *store.UserRepo, linkRepo *store.LinkRepo) link.Link {
+	t.Helper()
+	ctx := context.Background()
+	u := auth.User{
+		ID:           uuid.New(),
+		Email:        fmt.Sprintf("shut_%s@example.com", uuid.NewString()[:8]),
+		PasswordHash: "$2a$12$fakehashedpasswordforrepointegrationtest",
+		CreatedAt:    time.Now().UTC(),
+	}
+	if err := userRepo.Create(ctx, u); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	l := link.Link{
+		ID:        uuid.New(),
+		UserID:    u.ID,
+		Code:      "shut_" + uuid.NewString()[:6],
+		TargetURL: "https://example.com",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := linkRepo.Insert(ctx, l); err != nil {
+		t.Fatalf("create link: %v", err)
+	}
+	return l
+}
+
+// TestShutdown_BufferedClicksFlushed_AC15 verifies AC-15:
+// When SIGTERM/context cancellation happens while clicks are buffered,
+// the clicks are flushed to the database before exit.
+func TestShutdown_BufferedClicksFlushed_AC15(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://shortlink:shortlink@localhost:5433/shortlink?sslmode=disable"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	pool, err := store.NewPool(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("connect db: %v", err)
+	}
+	defer pool.Close()
+
+	userRepo := store.NewUserRepo(pool)
+	linkRepo := store.NewLinkRepo(pool)
+	clickRepo := store.NewClickRepo(pool)
+
+	testLink := createTestLink(t, userRepo, linkRepo)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+
+	cfg := testConfig()
+	cfg.HTTPAddr = ln.Addr().String()
+	cfg.BaseURL = "http://" + ln.Addr().String()
+	cfg.ShutdownTimeout = 5 * time.Second
+
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+
+	// Large batch size and long interval so clicks remain in the memory buffer until Close()
+	recorder := click.NewRecorder(clickRepo, 1024, 100, time.Hour, logger)
+	recorder.Start()
+
+	authSvc := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTTTL, time.Now)
+	linkSvc := link.NewService(linkRepo, link.NewRandCodeGenerator(), time.Now)
+	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL, link.WithClickRecorder(recorder))
+
+	application := app.New(
+		cfg,
+		logger,
+		app.WithListener(ln),
+		app.WithLinkHandler(linkHandler, authSvc),
+		app.WithRecorder(recorder),
+		app.WithPinger(pool),
+	)
+
+	appCtx, cancelApp := context.WithCancel(context.Background())
+
+	runErrCh := make(chan error, 1)
+	go func() {
+		runErrCh <- application.Run(appCtx)
+	}()
+
+	// Buffer 5 click events directly
+	for range 5 {
+		recorder.Record(click.Event{
+			LinkID:    testLink.ID,
+			ClickedAt: time.Now().UTC(),
+		})
+	}
+
+	// Trigger shutdown (simulates SIGTERM)
+	cancelApp()
+
+	// Wait for Run() to exit
+	select {
+	case runErr := <-runErrCh:
+		if runErr != nil {
+			t.Fatalf("app.Run failed during shutdown: %v", runErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for shutdown to complete")
+	}
+
+	// Verify all 5 clicks were written to the database before exit (AC-15)
+	checkCtx, cancelCheck := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelCheck()
+
+	total, err := clickRepo.CountTotal(checkCtx, testLink.ID)
+	if err != nil {
+		t.Fatalf("CountTotal failed: %v", err)
+	}
+	if total != 5 {
+		t.Errorf("total clicks flushed on shutdown = %d, want 5", total)
 	}
 }
