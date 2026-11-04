@@ -147,7 +147,7 @@ Goal: async click capture that never slows the redirect.
   - Output: migration for `clicks`, sqlc queries (batch insert, count total, count per day for 30 days), `store` repository.
   - Done when: integration tests cover batch insert and both stats queries, including days with zero clicks omitted or filled (pick one and document it).
 
-- [ ] **P4-2 Recorder**
+- [x] **P4-2 Recorder**
   - Depends on: P4-1
   - Output: `click.Recorder` with `Start`, non-blocking `Record`, batch flush by size or interval, `Close(ctx)` that drains. Drop counter on full buffer.
   - Done when: tests under `-race` cover AC-14 (full buffer drops and does not block), flush by size, flush by interval, and drain on `Close`. No `time.Sleep` in tests.
@@ -232,3 +232,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P3-1 | `go test -race ./internal/link/...` PASS (AC-11 redirect 302 with Location, AC-12 expired link 410, boundary expiry tests) |
 | 2026-11-04 | P3-2 | `go test -race -tags=integration ./internal/app/...` PASS (TestE2E_RegisterLoginCreateRedirectDelete: register -> login -> create -> redirect 302 -> get -> delete -> 404; TestE2E_ExpiredLink_Returns410: AC-12 410 link_expired) |
 | 2026-11-04 | P4-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestClickRepo_BatchInsertAndStats: batch copy insert, count total, clicks per day with zero-click days omitted); migration 00004_create_clicks.sql |
+| 2026-11-04 | P4-2 | `go test -race ./internal/click/...` PASS (AC-14 full buffer drops without blocking, flush by size, flush by interval, drain on close with zero time.Sleep) |
