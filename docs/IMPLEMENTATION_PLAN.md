@@ -38,7 +38,7 @@ Goal: a running server with config, logging, middleware, database connection, an
   - Output: `internal/config` with typed struct, defaults, validation (for example `JWT_SECRET` at least 32 bytes).
   - Done when: table-driven tests cover valid config, missing required value, and invalid duration. `make test` passes.
 
-- [ ] **P0-3 Logger**
+- [x] **P0-3 Logger**
   - Depends on: P0-2
   - Output: slog setup from `LOG_LEVEL` and `LOG_FORMAT`.
   - Done when: tests show level filtering works and JSON output has expected keys.
@@ -215,3 +215,4 @@ Add one line per completed task. Newest at the bottom.
 | --- | --- | --- |
 | 2026-11-04 | P0-1 | `go build ./...` exit 0; `golangci-lint run ./...` 0 issues; committed 74a0a0f pushed to https://github.com/kyyril/shortlink |
 | 2026-11-04 | P0-2 | `go test -race ./internal/config/...` PASS (11 subtests: ValidConfig, MissingDatabaseURL, MissingJWTSecret, JWTSecretTooShort, InvalidAppEnv, InvalidLogLevel, InvalidLogFormat, InvalidJWTTTL, ZeroShutdownTimeout, ZeroRequestTimeout, FieldsMatchEnv) |
+| 2026-11-04 | P0-3 | `go test -race ./internal/app/...` PASS (11 subtests covering level filtering, error handling, JSON expected keys, text format); `golangci-lint run ./...` 0 issues |
