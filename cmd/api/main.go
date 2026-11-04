@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kyyril/shortlink/internal/app"
+	"github.com/kyyril/shortlink/internal/auth"
 	"github.com/kyyril/shortlink/internal/config"
 	"github.com/kyyril/shortlink/internal/store"
 )
@@ -45,7 +46,16 @@ func run() error {
 	}
 	defer pool.Close()
 
-	application := app.New(cfg, logger, app.WithPinger(pool))
+	userRepo := store.NewUserRepo(pool)
+	authSvc := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTTTL, time.Now)
+	authHandler := auth.NewHandler(authSvc)
+
+	application := app.New(
+		cfg,
+		logger,
+		app.WithPinger(pool),
+		app.WithAuthHandler(authHandler),
+	)
 
 	logger.Info("starting server", "addr", cfg.HTTPAddr, "env", cfg.AppEnv)
 	if err := application.Run(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {

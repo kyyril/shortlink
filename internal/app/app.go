@@ -19,6 +19,12 @@ type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
+// AuthHandler specifies the HTTP handlers for user authentication.
+type AuthHandler interface {
+	Register(w http.ResponseWriter, r *http.Request)
+	Login(w http.ResponseWriter, r *http.Request)
+}
+
 // App represents the application composition root.
 type App struct {
 	cfg         *config.Config
@@ -28,6 +34,7 @@ type App struct {
 	pinger      Pinger
 	ln          net.Listener // optional custom listener for tests
 	extraRoutes map[string]http.HandlerFunc
+	authH       AuthHandler
 }
 
 // Option configures App.
@@ -44,6 +51,13 @@ func WithListener(ln net.Listener) Option {
 func WithPinger(p Pinger) Option {
 	return func(a *App) {
 		a.pinger = p
+	}
+}
+
+// WithAuthHandler sets the authentication handler.
+func WithAuthHandler(h AuthHandler) Option {
+	return func(a *App) {
+		a.authH = h
 	}
 }
 
@@ -94,6 +108,11 @@ func (a *App) routes() *http.ServeMux {
 
 	mux.HandleFunc("GET /healthz", a.handleHealthz)
 	mux.HandleFunc("GET /readyz", a.handleReadyz)
+
+	if a.authH != nil {
+		mux.HandleFunc("POST /v1/auth/register", a.authH.Register)
+		mux.HandleFunc("POST /v1/auth/login", a.authH.Login)
+	}
 
 	for pattern, h := range a.extraRoutes {
 		mux.HandleFunc(pattern, h)

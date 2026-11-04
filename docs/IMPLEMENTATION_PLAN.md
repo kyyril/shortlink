@@ -15,7 +15,7 @@ Build order, dependencies, and progress. Requirements are in `PRD.md`. Design is
 | Phase | Name | Status |
 | --- | --- | --- |
 | P0 | Foundation | done |
-| P1 | Authentication | in progress |
+| P1 | Authentication | done |
 | P2 | Links CRUD | not started |
 | P3 | Redirect | not started |
 | P4 | Click recording and stats | not started |
@@ -84,7 +84,7 @@ Goal: register, login, protected routes.
   - Output: `POST /v1/auth/register`, `POST /v1/auth/login`.
   - Done when: handler tests cover AC-1, AC-2, AC-3. Response never contains the password hash.
 
-- [ ] **P1-4 Auth middleware**
+- [x] **P1-4 Auth middleware**
   - Depends on: P1-2
   - Output: middleware that verifies the bearer token and stores the user ID in the context with a typed key.
   - Done when: tests cover AC-7 (missing header, malformed header, invalid token, expired token).
@@ -223,3 +223,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P1-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestUserRepo_CreateAndFind, TestUserRepo_FindByEmail_NotFound); migration 00002_create_users.sql with citext and sqlc generated code |
 | 2026-11-04 | P1-2 | `go test -race ./internal/auth/...` PASS (10 test cases: valid register, short password, invalid email variants, duplicate email, valid login, wrong password, unknown email with same error, expired token, tampered token, RS256 algorithm rejection) |
 | 2026-11-04 | P1-3 | `go test -race -run TestHandler ./internal/auth/...` PASS (AC-1 register 201 without password hash, AC-2 duplicate email 409 email_taken, AC-3 invalid credentials 401 for wrong password and unknown email) |
+| 2026-11-04 | P1-4 | `go test -race -run TestAuthenticate ./internal/auth/...` PASS (AC-7 missing header 401, malformed header 401, invalid token 401, expired token 401, valid token passes user UUID into context); wired into app |
