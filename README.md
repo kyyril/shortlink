@@ -4,6 +4,17 @@ A high-performance URL shortener REST API written in idiomatic Go.
 
 The project is designed as a production-grade reference and boilerplate for clean Go backend architecture: layering, error handling, logging, testing, graceful shutdown, async telemetry, rate limiting, idempotency, and concurrency in one cohesive codebase.
 
+## Live Demo
+
+The API is deployed and running live:
+
+- **Base URL:** `https://shortlink-production-1c53.up.railway.app`
+- **Application Hosting:** [Railway](https://railway.com) (Docker container on serverless infrastructure)
+- **Database:** [Neon](https://neon.tech) (Serverless PostgreSQL 17)
+- **Liveness Probe:** `https://shortlink-production-1c53.up.railway.app/healthz`
+- **Readiness Probe:** `https://shortlink-production-1c53.up.railway.app/readyz`
+- **Demo Redirect:** `https://shortlink-production-1c53.up.railway.app/repo` -> redirects (`302`) to this GitHub repository
+
 ## What it does
 
 - Users register and log in (`JWT HS256` access token, bcrypt password hashing).
