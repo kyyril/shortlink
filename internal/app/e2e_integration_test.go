@@ -59,8 +59,9 @@ func buildTestApp(t *testing.T) (http.Handler, *click.Recorder, func()) {
 	recorder.Start()
 
 	linkRepo := store.NewLinkRepo(pool)
+	idemRepo := store.NewIdempotencyRepo(pool)
 	linkSvc := link.NewService(linkRepo, link.NewRandCodeGenerator(), time.Now)
-	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL, link.WithClickRecorder(recorder))
+	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL, link.WithClickRecorder(recorder), link.WithIdempotencyStore(idemRepo))
 
 	statsSvc := click.NewService(clickRepo, linkSvc, time.Now)
 	statsHandler := click.NewHandler(statsSvc)

@@ -53,6 +53,13 @@ jobs:
       - name: Run unit tests
         run: go test -race ./...
 
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgres://shortlink:shortlink@localhost:5432/shortlink?sslmode=disable
+        run: |
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+          goose -dir db/migrations postgres "$DATABASE_URL" up
+
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://shortlink:shortlink@localhost:5432/shortlink?sslmode=disable
