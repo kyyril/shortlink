@@ -12,8 +12,14 @@ import (
 
 type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteOwnedLink(ctx context.Context, arg DeleteOwnedLinkParams) error
+	GetLinkByCode(ctx context.Context, code string) (Link, error)
+	GetOwnedLink(ctx context.Context, arg GetOwnedLinkParams) (Link, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	InsertLink(ctx context.Context, arg InsertLinkParams) error
+	ListLinksAfter(ctx context.Context, arg ListLinksAfterParams) ([]Link, error)
+	ListLinksFirstPage(ctx context.Context, arg ListLinksFirstPageParams) ([]Link, error)
 }
 
 var _ Querier = (*Queries)(nil)

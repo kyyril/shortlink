@@ -156,4 +156,3 @@ func TestAuthenticate_AC7(t *testing.T) {
 		})
 	}
 }
-

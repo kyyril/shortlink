@@ -61,4 +61,3 @@ func Authenticate(verifier TokenVerifier) func(http.Handler) http.Handler {
 		})
 	}
 }
-

@@ -96,4 +96,3 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	_ = httpx.EncodeJSON(w, http.StatusOK, resp)
 }
-
