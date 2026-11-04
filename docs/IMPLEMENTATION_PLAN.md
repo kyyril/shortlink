@@ -171,7 +171,7 @@ Goal: async click capture that never slows the redirect.
   - Output: per-IP token bucket, 429 with `Retry-After`, periodic cleanup of idle limiters, client IP helper that only trusts a forwarded header when configured.
   - Done when: tests cover AC-17 and cleanup of idle entries.
 
-- [ ] **P5-2 Input edge cases**
+- [x] **P5-2 Input edge cases**
   - Depends on: P2-5
   - Output: URL validation hardened (length, scheme, host present, no userinfo), reserved codes blocked (`v1`, `healthz`, `readyz`).
   - Done when: table-driven tests list each rejected and accepted case.
@@ -236,8 +236,10 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P4-3 | `go test -race -tags=integration ./internal/app/...` PASS (AC-13 TestE2E_ClickRecorderAndStats: 3 redirects produce 3 clicks in stats after drain, non-owner gets 404) |
 | 2026-11-04 | P4-4 | `go test -race -tags=integration ./internal/app/...` PASS (AC-15 TestShutdown_BufferedClicksFlushed_AC15: clicks buffered, SIGTERM/cancel triggered, all clicks flushed before exit) |
 | 2026-11-04 | P5-1 | `go test -race ./internal/httpx/...` PASS (AC-17 TestRateLimiter_ExceedLimit_Returns429WithRetryAfter, TestRateLimiter_ClientIP_TrustForwarded, TestRateLimiter_CleanupIdle) |
+| 2026-11-04 | P5-2 | `go test -race ./internal/link/...` PASS (TestService_ValidateTarget_EdgeCases with 17 cases, TestService_ValidateCustomCode_EdgeCases with 17 cases) |
 | 2026-11-04 | P4-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestClickRepo_BatchInsertAndStats: batch copy insert, count total, clicks per day with zero-click days omitted); migration 00004_create_clicks.sql |
 | 2026-11-04 | P4-2 | `go test -race ./internal/click/...` PASS (AC-14 full buffer drops without blocking, flush by size, flush by interval, drain on close with zero time.Sleep) |
 | 2026-11-04 | P4-3 | `go test -race -tags=integration ./internal/app/...` PASS (AC-13 TestE2E_ClickRecorderAndStats: 3 redirects produce 3 clicks in stats after drain, non-owner gets 404) |
 | 2026-11-04 | P4-4 | `go test -race -tags=integration ./internal/app/...` PASS (AC-15 TestShutdown_BufferedClicksFlushed_AC15: clicks buffered, SIGTERM/cancel triggered, all clicks flushed before exit) |
 | 2026-11-04 | P5-1 | `go test -race ./internal/httpx/...` PASS (AC-17 TestRateLimiter_ExceedLimit_Returns429WithRetryAfter, TestRateLimiter_ClientIP_TrustForwarded, TestRateLimiter_CleanupIdle) |
+| 2026-11-04 | P5-2 | `go test -race ./internal/link/...` PASS (TestService_ValidateTarget_EdgeCases with 17 cases, TestService_ValidateCustomCode_EdgeCases with 17 cases) |
