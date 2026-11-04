@@ -152,7 +152,7 @@ Goal: async click capture that never slows the redirect.
   - Output: `click.Recorder` with `Start`, non-blocking `Record`, batch flush by size or interval, `Close(ctx)` that drains. Drop counter on full buffer.
   - Done when: tests under `-race` cover AC-14 (full buffer drops and does not block), flush by size, flush by interval, and drain on `Close`. No `time.Sleep` in tests.
 
-- [ ] **P4-3 Wire recorder and stats endpoint**
+- [x] **P4-3 Wire recorder and stats endpoint**
   - Depends on: P4-2, P3-1
   - Output: redirect calls `Record`. `GET /v1/links/{code}/stats` returns total and per-day counts for the owner.
   - Done when: e2e test covers AC-13. Another user gets 404 on stats.
@@ -233,3 +233,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P3-2 | `go test -race -tags=integration ./internal/app/...` PASS (TestE2E_RegisterLoginCreateRedirectDelete: register -> login -> create -> redirect 302 -> get -> delete -> 404; TestE2E_ExpiredLink_Returns410: AC-12 410 link_expired) |
 | 2026-11-04 | P4-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestClickRepo_BatchInsertAndStats: batch copy insert, count total, clicks per day with zero-click days omitted); migration 00004_create_clicks.sql |
 | 2026-11-04 | P4-2 | `go test -race ./internal/click/...` PASS (AC-14 full buffer drops without blocking, flush by size, flush by interval, drain on close with zero time.Sleep) |
+| 2026-11-04 | P4-3 | `go test -race -tags=integration ./internal/app/...` PASS (AC-13 TestE2E_ClickRecorderAndStats: 3 redirects produce 3 clicks in stats after drain, non-owner gets 404) |

@@ -37,8 +37,17 @@ type LinkHandler interface {
 	Redirect(w http.ResponseWriter, r *http.Request)
 }
 
+// StatsHandler specifies the HTTP handler for link statistics.
+type StatsHandler interface {
+	GetStats(w http.ResponseWriter, r *http.Request)
+}
+
+// RecorderCloser closes the background click recorder.
+type RecorderCloser interface {
+	Close(ctx context.Context) error
+}
+
 // tokenVerifier can validate a JWT token and return the user ID.
-// Defined here (using uuid.UUID) to wire Authenticate without importing auth directly.
 type tokenVerifier interface {
 	VerifyToken(tokenStr string) (uuid.UUID, error)
 }
@@ -54,6 +63,8 @@ type App struct {
 	extraRoutes map[string]http.HandlerFunc
 	authH       AuthHandler
 	linkH       LinkHandler
+	statsH      StatsHandler
+	recorder    RecorderCloser
 	tokenVerif  tokenVerifier
 }
 
@@ -87,6 +98,20 @@ func WithLinkHandler(h LinkHandler, verifier tokenVerifier) Option {
 	return func(a *App) {
 		a.linkH = h
 		a.tokenVerif = verifier
+	}
+}
+
+// WithStatsHandler sets the click statistics handler.
+func WithStatsHandler(h StatsHandler) Option {
+	return func(a *App) {
+		a.statsH = h
+	}
+}
+
+// WithRecorder attaches the click recorder for lifecycle and graceful shutdown management.
+func WithRecorder(r RecorderCloser) Option {
+	return func(a *App) {
+		a.recorder = r
 	}
 }
 
@@ -154,6 +179,10 @@ func (a *App) routes() *http.ServeMux {
 		mux.Handle("GET /v1/links", authn(http.HandlerFunc(a.linkH.List)))
 		mux.Handle("GET /v1/links/{code}", authn(http.HandlerFunc(a.linkH.Get)))
 		mux.Handle("DELETE /v1/links/{code}", authn(http.HandlerFunc(a.linkH.Delete)))
+
+		if a.statsH != nil {
+			mux.Handle("GET /v1/links/{code}/stats", authn(http.HandlerFunc(a.statsH.GetStats)))
+		}
 	}
 
 	for pattern, h := range a.extraRoutes {
@@ -223,15 +252,23 @@ func (a *App) Run(ctx context.Context) error {
 		a.logger.Info("shutdown signal received, starting graceful shutdown")
 	}
 
-	// 1. Mark not ready so load balancers divert traffic away
+	// Graceful shutdown sequence:
+	// 1. Mark not ready so load balancers divert traffic away.
 	a.ready.Store(false)
 
-	// 2. Server shutdown with deadline
+	// 2. Server shutdown with deadline — wait for in-flight requests.
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
 
 	if err := a.server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("shutdown server: %w", err)
+	}
+
+	// 3. Close click recorder — flush buffered clicks.
+	if a.recorder != nil {
+		if err := a.recorder.Close(shutdownCtx); err != nil {
+			return fmt.Errorf("close recorder: %w", err)
+		}
 	}
 
 	a.logger.Info("server shutdown complete")

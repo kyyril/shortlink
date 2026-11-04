@@ -12,6 +12,7 @@ import (
 
 	"github.com/kyyril/shortlink/internal/app"
 	"github.com/kyyril/shortlink/internal/auth"
+	"github.com/kyyril/shortlink/internal/click"
 	"github.com/kyyril/shortlink/internal/config"
 	"github.com/kyyril/shortlink/internal/link"
 	"github.com/kyyril/shortlink/internal/store"
@@ -52,10 +53,19 @@ func run() error {
 	authSvc := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTTTL, time.Now)
 	authHandler := auth.NewHandler(authSvc)
 
+	// Click recorder
+	clickRepo := store.NewClickRepo(pool)
+	recorder := click.NewRecorder(clickRepo, cfg.ClickBufferSize, 100, 500*time.Millisecond, logger)
+	recorder.Start()
+
 	// Link layer
 	linkRepo := store.NewLinkRepo(pool)
 	linkSvc := link.NewService(linkRepo, link.NewRandCodeGenerator(), time.Now)
-	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL)
+	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL, link.WithClickRecorder(recorder))
+
+	// Stats layer
+	statsSvc := click.NewService(clickRepo, linkSvc, time.Now)
+	statsHandler := click.NewHandler(statsSvc)
 
 	application := app.New(
 		cfg,
@@ -63,6 +73,8 @@ func run() error {
 		app.WithPinger(pool),
 		app.WithAuthHandler(authHandler),
 		app.WithLinkHandler(linkHandler, authSvc),
+		app.WithStatsHandler(statsHandler),
+		app.WithRecorder(recorder),
 	)
 
 	logger.Info("starting server", "addr", cfg.HTTPAddr, "env", cfg.AppEnv)

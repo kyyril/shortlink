@@ -19,13 +19,14 @@ import (
 
 	"github.com/kyyril/shortlink/internal/app"
 	"github.com/kyyril/shortlink/internal/auth"
+	"github.com/kyyril/shortlink/internal/click"
 	"github.com/kyyril/shortlink/internal/link"
 	"github.com/kyyril/shortlink/internal/store"
 )
 
 // buildTestApp constructs a full application stack wired to the real database.
-// It returns the app handler and a cancel function that closes the pool.
-func buildTestApp(t *testing.T) (http.Handler, func()) {
+// It returns the app handler, recorder, and a cleanup function.
+func buildTestApp(t *testing.T) (http.Handler, *click.Recorder, func()) {
 	t.Helper()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -51,9 +52,16 @@ func buildTestApp(t *testing.T) (http.Handler, func()) {
 	authSvc := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTTTL, time.Now)
 	authHandler := auth.NewHandler(authSvc)
 
+	clickRepo := store.NewClickRepo(pool)
+	recorder := click.NewRecorder(clickRepo, 1024, 10, 100*time.Millisecond, logger)
+	recorder.Start()
+
 	linkRepo := store.NewLinkRepo(pool)
 	linkSvc := link.NewService(linkRepo, link.NewRandCodeGenerator(), time.Now)
-	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL)
+	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL, link.WithClickRecorder(recorder))
+
+	statsSvc := click.NewService(clickRepo, linkSvc, time.Now)
+	statsHandler := click.NewHandler(statsSvc)
 
 	// Use a random port listener so tests don't conflict.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -68,10 +76,19 @@ func buildTestApp(t *testing.T) (http.Handler, func()) {
 		app.WithPinger(pool),
 		app.WithAuthHandler(authHandler),
 		app.WithLinkHandler(linkHandler, authSvc),
+		app.WithStatsHandler(statsHandler),
+		app.WithRecorder(recorder),
 	)
 	application.SetReady(true)
 
-	return application.Routes(), func() { pool.Close() }
+	cleanup := func() {
+		closeCtx, cancelClose := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancelClose()
+		_ = recorder.Close(closeCtx)
+		pool.Close()
+	}
+
+	return application.Routes(), recorder, cleanup
 }
 
 // doJSON is a helper that sends a JSON request against the test handler and returns the response.
@@ -100,7 +117,7 @@ func doJSON(t *testing.T, handler http.Handler, method, path string, body any, h
 // TestE2E_RegisterLoginCreateRedirectDelete is the black-box end-to-end test (AC-11, AC-12 scope).
 // It covers: register → login → create link → redirect → delete → 404.
 func TestE2E_RegisterLoginCreateRedirectDelete(t *testing.T) {
-	handler, cleanup := buildTestApp(t)
+	handler, _, cleanup := buildTestApp(t)
 	defer cleanup()
 
 	email := fmt.Sprintf("e2e_%s@example.com", strings.Replace(time.Now().Format("150405.000"), ".", "", 1))
@@ -191,7 +208,7 @@ func TestE2E_RegisterLoginCreateRedirectDelete(t *testing.T) {
 
 // TestE2E_ExpiredLink_Returns410 verifies AC-12: expired link returns 410.
 func TestE2E_ExpiredLink_Returns410(t *testing.T) {
-	handler, cleanup := buildTestApp(t)
+	handler, _, cleanup := buildTestApp(t)
 	defer cleanup()
 
 	email := fmt.Sprintf("e2e_exp_%s@example.com", strings.Replace(time.Now().Format("150405.000"), ".", "", 1))
@@ -258,5 +275,97 @@ func TestE2E_ExpiredLink_Returns410(t *testing.T) {
 	}
 	if prob.Code != "link_expired" {
 		t.Errorf("expired link: problem code = %q, want link_expired", prob.Code)
+	}
+}
+
+// TestE2E_ClickRecorderAndStats verifies AC-13: 3 redirects produce 3 clicks in stats,
+// and another user receives 404 when querying stats.
+func TestE2E_ClickRecorderAndStats(t *testing.T) {
+	handler, recorder, cleanup := buildTestApp(t)
+	defer cleanup()
+
+	email := fmt.Sprintf("e2e_stats_%s@example.com", strings.Replace(time.Now().Format("150405.000"), ".", "", 1))
+	password := "securepassword123"
+
+	// Register & Login Owner
+	doJSON(t, handler, http.MethodPost, "/v1/auth/register", map[string]string{
+		"email": email, "password": password,
+	}, nil)
+
+	rec := doJSON(t, handler, http.MethodPost, "/v1/auth/login", map[string]string{
+		"email": email, "password": password,
+	}, nil)
+
+	var loginResp struct {
+		AccessToken string `json:"access_token"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &loginResp)
+	ownerBearer := map[string]string{"Authorization": "Bearer " + loginResp.AccessToken}
+
+	// Create Link
+	rec = doJSON(t, handler, http.MethodPost, "/v1/links", map[string]string{
+		"url": "https://example.com/target",
+	}, ownerBearer)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create link failed: %s", rec.Body)
+	}
+
+	var linkResp struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &linkResp)
+	code := linkResp.Code
+
+	// Perform 3 redirects
+	for range 3 {
+		rec = doJSON(t, handler, http.MethodGet, "/"+code, nil, nil)
+		if rec.Code != http.StatusFound {
+			t.Fatalf("redirect returned %d, want 302", rec.Code)
+		}
+	}
+
+	// Flush recorder by closing it or giving it time to drain
+	closeCtx, cancelClose := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelClose()
+	if err := recorder.Close(closeCtx); err != nil {
+		t.Fatalf("recorder close: %v", err)
+	}
+
+	// Read stats as owner (AC-13)
+	rec = doJSON(t, handler, http.MethodGet, "/v1/links/"+code+"/stats", nil, ownerBearer)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get stats: status = %d, want 200; body = %s", rec.Code, rec.Body)
+	}
+
+	var statsResp struct {
+		TotalClicks int64 `json:"total_clicks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &statsResp); err != nil {
+		t.Fatalf("unmarshal stats: %v", err)
+	}
+	if statsResp.TotalClicks != 3 {
+		t.Errorf("total clicks = %d, want 3", statsResp.TotalClicks)
+	}
+
+	// Register & Login another user
+	otherEmail := fmt.Sprintf("other_%s@example.com", strings.Replace(time.Now().Format("150405.000"), ".", "", 1))
+	doJSON(t, handler, http.MethodPost, "/v1/auth/register", map[string]string{
+		"email": otherEmail, "password": password,
+	}, nil)
+
+	rec = doJSON(t, handler, http.MethodPost, "/v1/auth/login", map[string]string{
+		"email": otherEmail, "password": password,
+	}, nil)
+
+	var otherLoginResp struct {
+		AccessToken string `json:"access_token"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &otherLoginResp)
+	otherBearer := map[string]string{"Authorization": "Bearer " + otherLoginResp.AccessToken}
+
+	// Another user querying stats on this link gets 404
+	rec = doJSON(t, handler, http.MethodGet, "/v1/links/"+code+"/stats", nil, otherBearer)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("other user stats: status = %d, want 404", rec.Code)
 	}
 }

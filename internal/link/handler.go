@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kyyril/shortlink/internal/auth"
+	"github.com/kyyril/shortlink/internal/click"
 	"github.com/kyyril/shortlink/internal/httpx"
 )
 
@@ -22,15 +23,35 @@ type LinkService interface {
 	Delete(ctx context.Context, userID uuid.UUID, code string) error
 }
 
+// ClickRecorder records link access events.
+type ClickRecorder interface {
+	Record(e click.Event)
+}
+
 // Handler handles HTTP requests for the links domain.
 type Handler struct {
-	svc     LinkService
-	baseURL string // e.g. "https://short.ly" — used to build short_url
+	svc      LinkService
+	recorder ClickRecorder
+	baseURL  string // e.g. "https://short.ly" — used to build short_url
 }
 
 // NewHandler returns a new Handler.
-func NewHandler(svc LinkService, baseURL string) *Handler {
-	return &Handler{svc: svc, baseURL: baseURL}
+func NewHandler(svc LinkService, baseURL string, opts ...HandlerOption) *Handler {
+	h := &Handler{svc: svc, baseURL: baseURL}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
+}
+
+// HandlerOption configures Handler.
+type HandlerOption func(*Handler)
+
+// WithClickRecorder attaches a click recorder for redirect telemetry.
+func WithClickRecorder(r ClickRecorder) HandlerOption {
+	return func(h *Handler) {
+		h.recorder = r
+	}
 }
 
 // createRequest is the POST /v1/links request body.
@@ -191,6 +212,13 @@ func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+
+	if h.recorder != nil {
+		h.recorder.Record(click.Event{
+			LinkID:    l.ID,
+			ClickedAt: time.Now().UTC(),
+		})
 	}
 
 	http.Redirect(w, r, l.TargetURL, http.StatusFound)
