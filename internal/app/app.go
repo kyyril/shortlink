@@ -166,6 +166,8 @@ func (a *App) routes() *http.ServeMux {
 	mux.HandleFunc("GET /healthz", a.handleHealthz)
 	mux.HandleFunc("GET /readyz", a.handleReadyz)
 	mux.Handle("GET /metrics", promhttp.Handler())
+	mux.HandleFunc("GET /docs", a.handleDocs)
+	mux.HandleFunc("GET /openapi.yaml", a.handleOpenAPISpec)
 
 	if a.authH != nil {
 		mux.HandleFunc("POST /v1/auth/register", a.authH.Register)
