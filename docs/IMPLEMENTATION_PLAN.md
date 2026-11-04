@@ -142,7 +142,7 @@ Goal: the public redirect endpoint.
 
 Goal: async click capture that never slows the redirect.
 
-- [ ] **P4-1 Clicks table and repository**
+- [x] **P4-1 Clicks table and repository**
   - Depends on: P2-1
   - Output: migration for `clicks`, sqlc queries (batch insert, count total, count per day for 30 days), `store` repository.
   - Done when: integration tests cover batch insert and both stats queries, including days with zero clicks omitted or filled (pick one and document it).
@@ -231,3 +231,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P2-5 | `go test -race ./internal/link/...` PASS (AC-9 TestHandler_List_Pagination_AC9 45 links via limit=20 cursors, 201 create, 422 invalid_url, 409 code_taken, 404 other user, 204 delete, 302 redirect, 410 expired); `golangci-lint run ./...` 0 issues |
 | 2026-11-04 | P3-1 | `go test -race ./internal/link/...` PASS (AC-11 redirect 302 with Location, AC-12 expired link 410, boundary expiry tests) |
 | 2026-11-04 | P3-2 | `go test -race -tags=integration ./internal/app/...` PASS (TestE2E_RegisterLoginCreateRedirectDelete: register -> login -> create -> redirect 302 -> get -> delete -> 404; TestE2E_ExpiredLink_Returns410: AC-12 410 link_expired) |
+| 2026-11-04 | P4-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestClickRepo_BatchInsertAndStats: batch copy insert, count total, clicks per day with zero-click days omitted); migration 00004_create_clicks.sql |
