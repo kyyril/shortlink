@@ -10,6 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/kyyril/shortlink/internal/auth"
 	"github.com/kyyril/shortlink/internal/config"
 	"github.com/kyyril/shortlink/internal/httpx"
 )
@@ -25,6 +28,21 @@ type AuthHandler interface {
 	Login(w http.ResponseWriter, r *http.Request)
 }
 
+// LinkHandler specifies the HTTP handlers for link management.
+type LinkHandler interface {
+	Create(w http.ResponseWriter, r *http.Request)
+	List(w http.ResponseWriter, r *http.Request)
+	Get(w http.ResponseWriter, r *http.Request)
+	Delete(w http.ResponseWriter, r *http.Request)
+	Redirect(w http.ResponseWriter, r *http.Request)
+}
+
+// tokenVerifier can validate a JWT token and return the user ID.
+// Defined here (using uuid.UUID) to wire Authenticate without importing auth directly.
+type tokenVerifier interface {
+	VerifyToken(tokenStr string) (uuid.UUID, error)
+}
+
 // App represents the application composition root.
 type App struct {
 	cfg         *config.Config
@@ -35,6 +53,8 @@ type App struct {
 	ln          net.Listener // optional custom listener for tests
 	extraRoutes map[string]http.HandlerFunc
 	authH       AuthHandler
+	linkH       LinkHandler
+	tokenVerif  tokenVerifier
 }
 
 // Option configures App.
@@ -58,6 +78,15 @@ func WithPinger(p Pinger) Option {
 func WithAuthHandler(h AuthHandler) Option {
 	return func(a *App) {
 		a.authH = h
+	}
+}
+
+// WithLinkHandler sets the link management handler.
+// verifier is used to protect link routes with JWT authentication.
+func WithLinkHandler(h LinkHandler, verifier tokenVerifier) Option {
+	return func(a *App) {
+		a.linkH = h
+		a.tokenVerif = verifier
 	}
 }
 
@@ -114,6 +143,19 @@ func (a *App) routes() *http.ServeMux {
 		mux.HandleFunc("POST /v1/auth/login", a.authH.Login)
 	}
 
+	if a.linkH != nil && a.tokenVerif != nil {
+		authn := auth.Authenticate(a.tokenVerif)
+
+		// Public redirect — no auth required.
+		mux.HandleFunc("GET /{code}", a.linkH.Redirect)
+
+		// Protected link management routes.
+		mux.Handle("POST /v1/links", authn(http.HandlerFunc(a.linkH.Create)))
+		mux.Handle("GET /v1/links", authn(http.HandlerFunc(a.linkH.List)))
+		mux.Handle("GET /v1/links/{code}", authn(http.HandlerFunc(a.linkH.Get)))
+		mux.Handle("DELETE /v1/links/{code}", authn(http.HandlerFunc(a.linkH.Delete)))
+	}
+
 	for pattern, h := range a.extraRoutes {
 		mux.HandleFunc(pattern, h)
 	}
@@ -130,6 +172,7 @@ func (a *App) Routes() http.Handler {
 func (a *App) SetReady(ready bool) {
 	a.ready.Store(ready)
 }
+
 func (a *App) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	_ = httpx.EncodeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

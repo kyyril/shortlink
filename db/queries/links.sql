@@ -32,3 +32,4 @@ LIMIT @page_size;
 DELETE FROM links
 WHERE code = $1
   AND user_id = $2;
+

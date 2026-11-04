@@ -16,7 +16,7 @@ Build order, dependencies, and progress. Requirements are in `PRD.md`. Design is
 | --- | --- | --- |
 | P0 | Foundation | done |
 | P1 | Authentication | done |
-| P2 | Links CRUD | not started |
+| P2 | Links CRUD | done |
 | P3 | Redirect | not started |
 | P4 | Click recording and stats | not started |
 | P5 | Hardening | not started |
@@ -95,27 +95,27 @@ Goal: register, login, protected routes.
 
 Goal: authenticated users manage their links.
 
-- [ ] **P2-1 Links table and repository**
+- [x] **P2-1 Links table and repository**
   - Depends on: P1-1
   - Output: migration for `links` with indexes, sqlc queries (insert, get by code, list by user with keyset, delete by code and user), `store` link repository. Unique violation maps to `link.ErrCodeTaken`.
   - Done when: integration tests cover insert, duplicate code, get, delete, keyset listing across a page boundary.
 
-- [ ] **P2-2 Code generator**
+- [x] **P2-2 Code generator**
   - Depends on: P0-1
   - Output: `link.CodeGenerator` interface and a `crypto/rand` base62 implementation (7 chars).
   - Done when: tests check length, alphabet, and that two calls differ. Service tests use a fake generator.
 
-- [ ] **P2-3 Cursor helpers**
+- [x] **P2-3 Cursor helpers**
   - Depends on: P0-4
   - Output: encode and decode opaque cursor for `(created_at, id)` in `httpx`.
   - Done when: round-trip test passes. Tampered, truncated, and empty cursors return a typed error (AC-10).
 
-- [ ] **P2-4 Link service**
+- [x] **P2-4 Link service**
   - Depends on: P2-1, P2-2, P2-3
   - Output: Create (URL validation, custom code validation, expiry), Get, List, Delete. Ownership enforced, other users get `ErrNotFound`. Retry on random code conflict, max 5 tries.
   - Done when: unit tests cover AC-4, AC-5, AC-6, AC-8, retry exhaustion, custom code rules, `expires_at` in the past rejected.
 
-- [ ] **P2-5 Link handlers**
+- [x] **P2-5 Link handlers**
   - Depends on: P2-4, P1-4
   - Output: `POST /v1/links`, `GET /v1/links`, `GET /v1/links/{code}`, `DELETE /v1/links/{code}`.
   - Done when: handler tests cover status codes and problem codes. An integration test pages through 45 links with `limit=20` (AC-9).
@@ -224,3 +224,8 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P1-2 | `go test -race ./internal/auth/...` PASS (10 test cases: valid register, short password, invalid email variants, duplicate email, valid login, wrong password, unknown email with same error, expired token, tampered token, RS256 algorithm rejection) |
 | 2026-11-04 | P1-3 | `go test -race -run TestHandler ./internal/auth/...` PASS (AC-1 register 201 without password hash, AC-2 duplicate email 409 email_taken, AC-3 invalid credentials 401 for wrong password and unknown email) |
 | 2026-11-04 | P1-4 | `go test -race -run TestAuthenticate ./internal/auth/...` PASS (AC-7 missing header 401, malformed header 401, invalid token 401, expired token 401, valid token passes user UUID into context); wired into app |
+| 2026-11-04 | P2-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestLinkRepo_InsertAndGet, TestLinkRepo_DuplicateCode_ReturnsErrCodeTaken, TestLinkRepo_DeleteOwned, TestLinkRepo_ListByUser_KeysetPagination); migration 00003_create_links.sql, sqlc generated code |
+| 2026-11-04 | P2-2 | `go test -race ./internal/link/...` PASS (TestRandCodeGenerator_Length, TestRandCodeGenerator_Alphabet, TestRandCodeGenerator_Uniqueness) |
+| 2026-11-04 | P2-3 | `go test -race ./internal/httpx/...` PASS (TestCursor_RoundTrip, TestCursor_EmptyString_ReturnsErrInvalidCursor, TestCursor_TruncatedBase64_ReturnsErrInvalidCursor, TestCursor_TamperedBytes_ReturnsErrInvalidCursor, TestCursor_InvalidJSON_ReturnsErrInvalidCursor) |
+| 2026-11-04 | P2-4 | `go test -race ./internal/link/...` PASS (AC-4 valid create, AC-5 javascript/ftp schemes, AC-6 custom code taken, AC-8 other user ErrNotFound, retry exhaustion, reserved codes, short/invalid codes, expiry boundary) |
+| 2026-11-04 | P2-5 | `go test -race ./internal/link/...` PASS (AC-9 TestHandler_List_Pagination_AC9 45 links via limit=20 cursors, 201 create, 422 invalid_url, 409 code_taken, 404 other user, 204 delete, 302 redirect, 410 expired); `golangci-lint run ./...` 0 issues |

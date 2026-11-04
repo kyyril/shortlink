@@ -12,3 +12,4 @@ CREATE INDEX idx_links_user_created ON links (user_id, created_at DESC, id DESC)
 
 -- +goose Down
 DROP TABLE IF EXISTS links;
+

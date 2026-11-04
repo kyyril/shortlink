@@ -248,3 +248,4 @@ func TestLinkRepo_ListByUser_KeysetPagination(t *testing.T) {
 		t.Errorf("total links seen = %d, want 3", len(page1)+len(page2))
 	}
 }
+

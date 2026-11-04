@@ -13,6 +13,7 @@ import (
 	"github.com/kyyril/shortlink/internal/app"
 	"github.com/kyyril/shortlink/internal/auth"
 	"github.com/kyyril/shortlink/internal/config"
+	"github.com/kyyril/shortlink/internal/link"
 	"github.com/kyyril/shortlink/internal/store"
 )
 
@@ -46,15 +47,22 @@ func run() error {
 	}
 	defer pool.Close()
 
+	// Auth layer
 	userRepo := store.NewUserRepo(pool)
 	authSvc := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTTTL, time.Now)
 	authHandler := auth.NewHandler(authSvc)
+
+	// Link layer
+	linkRepo := store.NewLinkRepo(pool)
+	linkSvc := link.NewService(linkRepo, link.NewRandCodeGenerator(), time.Now)
+	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL)
 
 	application := app.New(
 		cfg,
 		logger,
 		app.WithPinger(pool),
 		app.WithAuthHandler(authHandler),
+		app.WithLinkHandler(linkHandler, authSvc),
 	)
 
 	logger.Info("starting server", "addr", cfg.HTTPAddr, "env", cfg.AppEnv)
