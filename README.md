@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/kyyril/shortlink)](go.mod)
 
-A production-grade, high-throughput URL shortener REST API built with idiomatic Go. Designed to demonstrate cloud-native backend engineering patterns: clean layering, zero-allocation serialization, non-blocking telemetry buffering, connection pooling, idempotency, per-IP token bucket rate limiting, and graceful draining.
+A production-grade, high-throughput URL shortener REST API built with Go. Clean layering, zero-allocation serialization, non-blocking telemetry buffering, connection pooling, idempotency, per-IP token bucket rate limiting, and graceful draining.
 
 ---
 
