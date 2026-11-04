@@ -1,12 +1,10 @@
 package app
 
 import (
-	_ "embed"
 	"net/http"
-)
 
-//go:embed openapi.yaml
-var openAPISpec []byte
+	"github.com/kyyril/shortlink/api"
+)
 
 // swaggerUIHTML is a self-contained HTML page that loads Swagger UI from standard CDN
 // and renders the embedded OpenAPI spec.
@@ -57,5 +55,5 @@ func (a *App) handleDocs(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/yaml")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(openAPISpec)
+	_, _ = w.Write(api.OpenAPISpec)
 }
