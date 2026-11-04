@@ -74,7 +74,7 @@ Goal: register, login, protected routes.
   - Output: migration for `users` (with `citext` extension), sqlc queries, `store` user repository. Unique violation maps to `auth.ErrEmailTaken`.
   - Done when: integration tests cover create, find by email (case-insensitive), duplicate email.
 
-- [ ] **P1-2 Auth service**
+- [x] **P1-2 Auth service**
   - Depends on: P1-1
   - Output: `auth.Service` with Register, Login, token issue and verify. Interfaces for repository and clock. bcrypt cost 12.
   - Done when: unit tests with fakes cover valid register, short password, invalid email, duplicate email, wrong password, unknown email (same error), expired token, tampered token, wrong signing algorithm.
@@ -221,3 +221,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P0-6 | `go test -race -tags=integration ./internal/app/...` PASS (AC-16 TestReadiness_WithDatabase_AC16: /readyz 200 with DB up, 503 with DB down, /healthz stays 200); goose migrations verified up/down |
 | 2026-11-04 | P0-7 | `.github/workflows/ci.yml` added with lint, unit tests, and integration tests with postgres:17-alpine service |
 | 2026-11-04 | P1-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestUserRepo_CreateAndFind, TestUserRepo_FindByEmail_NotFound); migration 00002_create_users.sql with citext and sqlc generated code |
+| 2026-11-04 | P1-2 | `go test -race ./internal/auth/...` PASS (10 test cases: valid register, short password, invalid email variants, duplicate email, valid login, wrong password, unknown email with same error, expired token, tampered token, RS256 algorithm rejection) |
