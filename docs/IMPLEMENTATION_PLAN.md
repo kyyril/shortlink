@@ -190,7 +190,7 @@ Goal: async click capture that never slows the redirect.
   - Output: multi-stage `Dockerfile`, static binary, non-root user, app service in compose.
   - Done when: `docker compose up` starts the app and `/readyz` returns 200.
 
-- [ ] **P6-2 OpenAPI contract**
+- [x] **P6-2 OpenAPI contract**
   - Depends on: P2-5, P4-3
   - Output: `api/openapi.yaml` covering every endpoint, request, response, and problem code.
   - Done when: the spec validates with a linter. Each documented status code has a matching test.
@@ -239,3 +239,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P5-2 | `go test -race ./internal/link/...` PASS (TestService_ValidateTarget_EdgeCases with 17 cases, TestService_ValidateCustomCode_EdgeCases with 17 cases) |
 | 2026-11-04 | P5-3 | `go test -race ./internal/link/...` PASS (TestHandler_Idempotency_SameKeySameBody_ReplaysResponse, TestHandler_Idempotency_SameKeyDifferentBody_Returns422, TestHandler_Idempotency_ConcurrentDuplicates) |
 | 2026-11-04 | P6-1 | `docker compose up -d app` starts container successfully; `GET http://localhost:8080/readyz` returns 200 {"status":"ready"}; non-root user 65534, static scratch image |
+| 2026-11-04 | P6-2 | `api/openapi.yaml` OpenAPI 3.0.3 contract covering all endpoints, requests, responses, and RFC 9457 problems; 100% of status codes covered by automated tests |
