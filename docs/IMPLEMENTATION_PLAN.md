@@ -17,7 +17,7 @@ Build order, dependencies, and progress. Requirements are in `PRD.md`. Design is
 | P0 | Foundation | done |
 | P1 | Authentication | done |
 | P2 | Links CRUD | done |
-| P3 | Redirect | not started |
+| P3 | Redirect | done |
 | P4 | Click recording and stats | not started |
 | P5 | Hardening | not started |
 | P6 | Delivery | not started |
@@ -126,12 +126,12 @@ Goal: authenticated users manage their links.
 
 Goal: the public redirect endpoint.
 
-- [ ] **P3-1 Redirect handler**
+- [x] **P3-1 Redirect handler**
   - Depends on: P2-4
   - Output: `GET /{code}` returning 302, 404, or 410. Uses injected clock for expiry.
   - Done when: tests cover AC-11 and AC-12, including a link that expires exactly at the current time.
 
-- [ ] **P3-2 First end-to-end test**
+- [x] **P3-2 First end-to-end test**
   - Depends on: P3-1, P2-5
   - Output: black-box test: register, login, create link, follow redirect, delete link, get 404.
   - Done when: test passes in `make test-integration`.
@@ -229,3 +229,5 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P2-3 | `go test -race ./internal/httpx/...` PASS (TestCursor_RoundTrip, TestCursor_EmptyString_ReturnsErrInvalidCursor, TestCursor_TruncatedBase64_ReturnsErrInvalidCursor, TestCursor_TamperedBytes_ReturnsErrInvalidCursor, TestCursor_InvalidJSON_ReturnsErrInvalidCursor) |
 | 2026-11-04 | P2-4 | `go test -race ./internal/link/...` PASS (AC-4 valid create, AC-5 javascript/ftp schemes, AC-6 custom code taken, AC-8 other user ErrNotFound, retry exhaustion, reserved codes, short/invalid codes, expiry boundary) |
 | 2026-11-04 | P2-5 | `go test -race ./internal/link/...` PASS (AC-9 TestHandler_List_Pagination_AC9 45 links via limit=20 cursors, 201 create, 422 invalid_url, 409 code_taken, 404 other user, 204 delete, 302 redirect, 410 expired); `golangci-lint run ./...` 0 issues |
+| 2026-11-04 | P3-1 | `go test -race ./internal/link/...` PASS (AC-11 redirect 302 with Location, AC-12 expired link 410, boundary expiry tests) |
+| 2026-11-04 | P3-2 | `go test -race -tags=integration ./internal/app/...` PASS (TestE2E_RegisterLoginCreateRedirectDelete: register -> login -> create -> redirect 302 -> get -> delete -> 404; TestE2E_ExpiredLink_Returns410: AC-12 410 link_expired) |
