@@ -144,6 +144,7 @@ func New(cfg *config.Config, logger *slog.Logger, opts ...Option) *App {
 		httpx.Metrics,
 		httpx.AccessLog(logger),
 		httpx.Timeout(cfg.RequestTimeout),
+		httpx.CORS,
 	)
 
 	a.server = &http.Server{
