@@ -195,7 +195,7 @@ Goal: async click capture that never slows the redirect.
   - Output: `api/openapi.yaml` covering every endpoint, request, response, and problem code.
   - Done when: the spec validates with a linter. Each documented status code has a matching test.
 
-- [ ] **P6-3 Metrics (stretch)**
+- [x] **P6-3 Metrics (stretch)**
   - Depends on: P0-5
   - Output: `/metrics` with request count, request duration, and click drop counter.
   - Done when: a test scrapes `/metrics` and finds the expected metric names.
@@ -240,3 +240,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P5-3 | `go test -race ./internal/link/...` PASS (TestHandler_Idempotency_SameKeySameBody_ReplaysResponse, TestHandler_Idempotency_SameKeyDifferentBody_Returns422, TestHandler_Idempotency_ConcurrentDuplicates) |
 | 2026-11-04 | P6-1 | `docker compose up -d app` starts container successfully; `GET http://localhost:8080/readyz` returns 200 {"status":"ready"}; non-root user 65534, static scratch image |
 | 2026-11-04 | P6-2 | `api/openapi.yaml` OpenAPI 3.0.3 contract covering all endpoints, requests, responses, and RFC 9457 problems; 100% of status codes covered by automated tests |
+| 2026-11-04 | P6-3 | `go test -race ./internal/app/...` PASS (TestMetrics_Scrape_ContainsExpectedMetricNames: verifies shortlink_http_requests_total, shortlink_http_request_duration_seconds, shortlink_click_drops_total) |

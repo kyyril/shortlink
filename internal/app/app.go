@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/kyyril/shortlink/internal/auth"
 	"github.com/kyyril/shortlink/internal/config"
@@ -140,6 +141,7 @@ func New(cfg *config.Config, logger *slog.Logger, opts ...Option) *App {
 		mux,
 		httpx.RequestID,
 		httpx.Recover(logger),
+		httpx.Metrics,
 		httpx.AccessLog(logger),
 		httpx.Timeout(cfg.RequestTimeout),
 	)
@@ -162,6 +164,7 @@ func (a *App) routes() *http.ServeMux {
 
 	mux.HandleFunc("GET /healthz", a.handleHealthz)
 	mux.HandleFunc("GET /readyz", a.handleReadyz)
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	if a.authH != nil {
 		mux.HandleFunc("POST /v1/auth/register", a.authH.Register)

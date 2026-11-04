@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/kyyril/shortlink/internal/httpx"
 )
 
 // RepositoryWriter defines the write operation needed by the recorder.
@@ -64,6 +66,7 @@ func (r *Recorder) Start() {
 func (r *Recorder) Record(e Event) {
 	if r.closed.Load() {
 		r.dropped.Add(1)
+		httpx.ClickDropsTotal.Inc()
 		return
 	}
 
@@ -71,6 +74,7 @@ func (r *Recorder) Record(e Event) {
 	case r.ch <- e:
 	default:
 		r.dropped.Add(1)
+		httpx.ClickDropsTotal.Inc()
 	}
 }
 
