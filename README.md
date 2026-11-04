@@ -29,55 +29,46 @@ The service is deployed live on serverless cloud infrastructure:
 flowchart TD
     Client(["HTTP Clients / Browsers"])
 
-    subgraph Edge ["Edge & Ingress (Railway / Reverse Proxy)"]
-        Ingress["TLS Termination & HTTP Routing"]
-    end
+    %% Edge & Ingress
+    Ingress["TLS Termination & HTTP Routing"]
 
-    subgraph App ["Shortlink Core Service (Go)"]
-        direction TB
-        
-        subgraph MiddlewareChain ["Middleware Pipeline"]
-            MW_CORS["CORS"]
-            MW_ReqID["Request ID (UUIDv4)"]
-            MW_Recov["Panic Recovery"]
-            MW_Metrics["Prometheus Metrics"]
-            MW_Log["Structured Access Log (slog)"]
-            MW_Timeout["Context Timeout (5s)"]
-            MW_Rate["Per-IP Rate Limiter (Token Bucket)"]
-        end
+    %% Middleware Pipeline
+    MW_CORS["CORS"]
+    MW_ReqID["Request ID (UUIDv4)"]
+    MW_Recov["Panic Recovery"]
+    MW_Metrics["Prometheus Metrics"]
+    MW_Log["Structured Access Log (slog)"]
+    MW_Timeout["Context Timeout (5s)"]
+    MW_Rate["Per-IP Rate Limiter (Token Bucket)"]
 
-        subgraph Handlers ["Domain Handlers (net/http)"]
-            H_Auth["Auth Handler (/v1/auth/*)"]
-            H_Link["Link Handler (/v1/links/*)"]
-            H_Redir["Redirect Handler (GET /{code})"]
-            H_Stats["Stats Handler (/v1/links/{code}/stats)"]
-            H_Docs["Swagger UI & OpenAPI (/docs)"]
-        end
+    %% Domain Handlers
+    H_Auth["Auth Handler (/v1/auth/*)"]
+    H_Link["Link Handler (/v1/links/*)"]
+    H_Redir["Redirect Handler (GET /{code})"]
+    H_Stats["Stats Handler (/v1/links/{code}/stats)"]
+    H_Docs["Swagger UI & OpenAPI (/docs)"]
 
-        subgraph CoreServices ["Business Logic Layer"]
-            S_Auth["Auth Service (bcrypt + JWT HS256)"]
-            S_Link["Link Service (Base62 Gen + Expiry Logic)"]
-            S_Stats["Stats Aggregation Service"]
-            S_Idem["Idempotency Engine (SHA-256 Hash Matching)"]
-        end
+    %% Business Logic Layer
+    S_Auth["Auth Service (bcrypt + JWT HS256)"]
+    S_Link["Link Service (Base62 Gen + Expiry Logic)"]
+    S_Stats["Stats Aggregation Service"]
+    S_Idem["Idempotency Engine (SHA-256 Hash Matching)"]
 
-        subgraph AsyncWorker ["Asynchronous Telemetry Worker"]
-            Channel["Ring/Channel Buffer (Capacity: 1024)"]
-            BatchWorker["Batch Collector Worker"]
-            CopyFrom["PostgreSQL Binary COPY FROM Streamer"]
-        end
-    end
+    %% Asynchronous Telemetry Worker
+    Channel["Ring/Channel Buffer (Capacity: 1024)"]
+    BatchWorker["Batch Collector Worker"]
+    CopyFrom["PostgreSQL Binary COPY FROM Streamer"]
 
-    subgraph Storage ["Managed Persistence (Neon Serverless PostgreSQL 17)"]
-        DB_Users[("users")]
-        DB_Links[("links (B-Tree indexed code)")]
-        DB_Clicks[("clicks (Append-only partitioned)")]
-        DB_Idem[("idempotency_keys")]
-    end
+    %% Persistence
+    DB_Users[("users")]
+    DB_Links[("links (B-Tree indexed code)")]
+    DB_Clicks[("clicks (Append-only partitioned)")]
+    DB_Idem[("idempotency_keys")]
 
+    %% Flow Connections
     Client --> Ingress
     Ingress --> MW_CORS --> MW_ReqID --> MW_Recov --> MW_Metrics --> MW_Log --> MW_Timeout --> MW_Rate
-    MW_Rate --> Handlers
+    MW_Rate --> H_Auth & H_Link & H_Redir & H_Stats & H_Docs
 
     H_Auth --> S_Auth --> DB_Users
     H_Link --> S_Idem --> DB_Idem
@@ -93,7 +84,7 @@ flowchart TD
 
 ---
 
-## Architectural Highlights & Engineering Decisions
+## Technical Decisions
 
 ### 1. Asynchronous, Zero-Loss Redirect Telemetry
 Redirect latency must never be bound to database write latency.
