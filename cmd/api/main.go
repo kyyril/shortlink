@@ -60,8 +60,9 @@ func run() error {
 
 	// Link layer
 	linkRepo := store.NewLinkRepo(pool)
+	idemRepo := store.NewIdempotencyRepo(pool)
 	linkSvc := link.NewService(linkRepo, link.NewRandCodeGenerator(), time.Now)
-	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL, link.WithClickRecorder(recorder))
+	linkHandler := link.NewHandler(linkSvc, cfg.BaseURL, link.WithClickRecorder(recorder), link.WithIdempotencyStore(idemRepo))
 
 	// Stats layer
 	statsSvc := click.NewService(clickRepo, linkSvc, time.Now)
