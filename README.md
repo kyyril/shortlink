@@ -1,152 +1,155 @@
 # Shortlink
 
-A URL shortener REST API written in Go.
+A high-performance URL shortener REST API written in idiomatic Go.
 
-The project is small on purpose. Its real job is to be a reference and boilerplate for idiomatic Go backend work: layering, error handling, logging, testing, graceful shutdown, and concurrency in one codebase you can read in an afternoon.
-
-> Status: planning. Code is built phase by phase. Check `docs/IMPLEMENTATION_PLAN.md` for what exists today. The commands below work once Phase 0 is done.
+The project is designed as a production-grade reference and boilerplate for clean Go backend architecture: layering, error handling, logging, testing, graceful shutdown, async telemetry, rate limiting, idempotency, and concurrency in one cohesive codebase.
 
 ## What it does
 
-- Users register and log in (JWT access token).
-- Logged-in users create, list, view, and delete short links.
-- Anyone can open `/{code}` and get redirected to the target URL.
-- Every redirect is recorded asynchronously. Link owners can read click stats.
-
-## Why this project
-
-A URL shortener is simple to explain, but it touches the backend topics that matter in real teams:
-
-- Authentication and ownership checks
-- Unique code generation and conflict handling
-- Cursor pagination
-- Expiry and time handling (testable clock)
-- Async work with goroutines, channels, and graceful shutdown
-- Rate limiting
-- Consistent error responses
+- Users register and log in (`JWT HS256` access token, bcrypt password hashing).
+- Logged-in users create, list (keyset pagination), view, and delete short links with optional custom codes and expiry.
+- Anyone can open `/{code}` and get redirected (`302`) to the target URL.
+- Every redirect is recorded asynchronously using an in-memory buffer and PostgreSQL binary `COPY FROM`.
+- Link owners can inspect total and 30-day click stats.
+- Token bucket rate limiting per client IP with idle cleanup.
+- Optional `Idempotency-Key` header on link creation.
+- Prometheus `/metrics` endpoint with request counts, duration histograms, and click drop counters.
+- Health checks: `/healthz` (liveness) and `/readyz` (readiness with database ping).
+- Standardized RFC 9457 `application/problem+json` error responses.
 
 ## Tech stack
 
 | Area | Choice |
 | --- | --- |
-| Language | Go (1.22 or newer, use the latest stable) |
-| HTTP | `net/http` with `ServeMux` and a small middleware chain |
-| Database | PostgreSQL with `pgx` |
-| Queries | `sqlc` (SQL in, typed Go out) |
+| Language | Go 1.26 |
+| HTTP | `net/http` stdlib `ServeMux` with a clean middleware chain |
+| Database | PostgreSQL 17 with `pgx/v5` connection pool |
+| Queries | `sqlc` (type-safe SQL compiler) |
 | Migrations | `goose` |
-| Logging | `log/slog` |
-| Auth | `golang-jwt/jwt/v5`, `bcrypt` |
-| Rate limit | `golang.org/x/time/rate` |
-| Tests | `testing`, `httptest`, `testcontainers-go` |
-| Lint | `golangci-lint` |
-
-Why each choice was made, and what the trade-off is: see `docs/ARCHITECTURE.md`.
+| Logging | `log/slog` (structured JSON in production) |
+| Auth | `golang-jwt/jwt/v5`, `golang.org/x/crypto/bcrypt` |
+| Rate limit | `golang.org/x/time/rate` (per-IP token bucket) |
+| Telemetry | `prometheus/client_golang` |
+| Tests | `testing`, `httptest`, real PostgreSQL integration tests (`-race`) |
+| Container | Docker multi-stage scratch image (~15 MB) running as non-root |
 
 ## Quick start
 
-Requirements: Go, Docker, `make`.
+### Prerequisites
+- Go 1.26+
+- Docker and Docker Compose
+- `make`
+
+### Running locally with Docker Compose
+
+To spin up the entire application along with PostgreSQL in containers:
 
 ```sh
-cp .env.example .env
-make tools        # installs sqlc, goose, golangci-lint at pinned versions
-make db-up        # starts PostgreSQL with Docker Compose
-make migrate-up   # applies migrations
-make run          # starts the API on :8080
+docker compose up -d
 ```
 
-Try it:
+Check readiness:
+```sh
+curl -i http://localhost:8080/readyz
+```
+
+### Running for local development
 
 ```sh
-curl -s -X POST localhost:8080/v1/auth/register \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"correct-horse-1"}'
+# 1. Copy environment template
+cp .env.example .env
 
-TOKEN=$(curl -s -X POST localhost:8080/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"correct-horse-1"}' | jq -r .access_token)
+# 2. Start PostgreSQL container
+make db-up
 
-curl -s -X POST localhost:8080/v1/links \
+# 3. Apply database migrations
+$env:DATABASE_URL="postgres://shortlink:shortlink@localhost:5433/shortlink?sslmode=disable"
+goose -dir db/migrations postgres $env:DATABASE_URL up
+
+# 4. Start the API
+make run
+```
+
+### Quick API Tour
+
+```sh
+# 1. Register
+curl -s -X POST http://localhost:8080/v1/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"dev@example.com","password":"securepassword123"}'
+
+# 2. Login
+TOKEN=$(curl -s -X POST http://localhost:8080/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"dev@example.com","password":"securepassword123"}' | jq -r .access_token)
+
+# 3. Create short link
+curl -s -X POST http://localhost:8080/v1/links \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"url":"https://go.dev/doc/"}'
+  -d '{"url":"https://go.dev/doc/effective_go","custom_code":"godocs"}'
 
-curl -i localhost:8080/<code-from-previous-response>
+# 4. Follow redirect
+curl -i http://localhost:8080/godocs
+
+# 5. Check stats
+curl -s http://localhost:8080/v1/links/godocs/stats \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Configuration
 
-All config comes from environment variables. The app fails to start if a required value is missing or invalid.
+All configuration is loaded from environment variables:
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `APP_ENV` | `development` | `development` or `production` |
-| `HTTP_ADDR` | `:8080` | Listen address |
-| `BASE_URL` | `http://localhost:8080` | Used to build the `short_url` field |
-| `DATABASE_URL` | required | PostgreSQL connection string |
-| `JWT_SECRET` | required | At least 32 bytes |
-| `JWT_TTL` | `15m` | Access token lifetime |
+| `HTTP_ADDR` | `:8080` | Server listen address |
+| `BASE_URL` | `http://localhost:8080` | Base URL used to build `short_url` |
+| `DATABASE_URL` | *required* | PostgreSQL connection string |
+| `JWT_SECRET` | *required* | Signing secret (minimum 32 bytes) |
+| `JWT_TTL` | `15m` | JWT access token lifetime |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `LOG_FORMAT` | `json` | `json` or `text` |
-| `SHUTDOWN_TIMEOUT` | `15s` | Max time to drain requests and flush clicks |
-| `REQUEST_TIMEOUT` | `5s` | Per-request timeout |
-| `RATE_LIMIT_RPS` | `10` | Sustained requests per second per IP |
-| `RATE_LIMIT_BURST` | `20` | Burst size per IP |
-| `CLICK_BUFFER_SIZE` | `1024` | Buffered click events before dropping |
+| `SHUTDOWN_TIMEOUT`| `15s` | Max duration to drain requests and flush telemetry |
+| `REQUEST_TIMEOUT` | `5s` | Timeout per HTTP request |
+| `RATE_LIMIT_RPS` | `10` | Sustained requests per second per client IP |
+| `RATE_LIMIT_BURST`| `20` | Token bucket burst capacity per IP |
+| `CLICK_BUFFER_SIZE`| `1024`| Size of the async click telemetry channel |
 
 ## API overview
 
-Full contract is in `api/openapi.yaml` (added in Phase 6).
+Full OpenAPI 3.0 specification available in `api/openapi.yaml`.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| POST | `/v1/auth/register` | no | Create account |
-| POST | `/v1/auth/login` | no | Get access token |
-| POST | `/v1/links` | yes | Create short link |
-| GET | `/v1/links` | yes | List own links (cursor pagination) |
-| GET | `/v1/links/{code}` | yes | Get one own link |
-| DELETE | `/v1/links/{code}` | yes | Delete own link |
-| GET | `/v1/links/{code}/stats` | yes | Click stats |
-| GET | `/{code}` | no | Redirect to target URL |
-| GET | `/healthz` | no | Liveness |
-| GET | `/readyz` | no | Readiness (checks database) |
+| POST | `/v1/auth/register` | No | Register new user account |
+| POST | `/v1/auth/login` | No | Authenticate user and issue JWT |
+| POST | `/v1/links` | Yes | Create shortlink (supports Idempotency-Key) |
+| GET | `/v1/links` | Yes | List owned links (keyset pagination) |
+| GET | `/v1/links/{code}` | Yes | Get owned link details |
+| DELETE | `/v1/links/{code}` | Yes | Delete owned link |
+| GET | `/v1/links/{code}/stats`| Yes | Click stats (total & 30-day breakdown) |
+| GET | `/{code}` | No | Redirect to long target URL |
+| GET | `/healthz` | No | Liveness probe |
+| GET | `/readyz` | No | Readiness probe (database ping) |
+| GET | `/metrics` | No | Prometheus telemetry metrics |
 
-Errors use RFC 9457 `application/problem+json`.
-
-## Testing
+## Testing & Quality Assurance
 
 ```sh
-make test               # unit and handler tests, with -race
-make test-integration   # needs Docker, uses a real PostgreSQL container
-make lint
-make check              # lint + test + test-integration, same as CI
-```
-
-Strategy and scenarios: `docs/TESTING.md`.
-
-## Project layout
-
-```text
-cmd/api/            main.go, only wiring and process startup
-internal/
-  app/              builds dependencies, routes, runs the server
-  config/           typed env config
-  auth/             register, login, tokens, auth middleware
-  link/             link domain: model, service, handler
-  click/            async click recorder and stats
-  store/            PostgreSQL repositories (sqlc generated code inside)
-  httpx/            middleware, problem+json, JSON helpers, pagination
-db/
-  migrations/       goose SQL files
-  queries/          sqlc SQL files
-api/openapi.yaml
-docs/
+make fmt                # Code formatting (gofmt, goimports)
+make lint               # Run golangci-lint
+make test               # Unit tests with -race detector
+make test-integration   # Integration tests with real PostgreSQL
+make check              # Complete CI check (lint + test + test-integration)
 ```
 
 ## Documentation
 
-- `docs/PRD.md`: what we build and how we know it is correct
-- `docs/ARCHITECTURE.md`: how it works and why
-- `docs/SYSTEM_DESIGN.md`: high-level to low-level design, scaling, trade-offs, interview Q&A
-- `docs/IMPLEMENTATION_PLAN.md`: build order and progress
-- `docs/TESTING.md`: how correctness is proven
-- `AGENTS.md`: rules for AI coding agents
+- `docs/PRD.md`: Requirements and acceptance criteria (AC-1 to AC-18)
+- `docs/ARCHITECTURE.md`: Architecture design, layering, and trade-off decisions
+- `docs/SYSTEM_DESIGN.md`: Deep dive on scalability, capacity estimation, and interview guide
+- `docs/IMPLEMENTATION_PLAN.md`: Step-by-step progress tracker and evidence log
+- `docs/TESTING.md`: Testing guidelines and policy
+- `AGENTS.md`: Rules and constraints for AI coding agents
