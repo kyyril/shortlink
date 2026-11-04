@@ -79,7 +79,7 @@ Goal: register, login, protected routes.
   - Output: `auth.Service` with Register, Login, token issue and verify. Interfaces for repository and clock. bcrypt cost 12.
   - Done when: unit tests with fakes cover valid register, short password, invalid email, duplicate email, wrong password, unknown email (same error), expired token, tampered token, wrong signing algorithm.
 
-- [ ] **P1-3 Auth handlers**
+- [x] **P1-3 Auth handlers**
   - Depends on: P1-2
   - Output: `POST /v1/auth/register`, `POST /v1/auth/login`.
   - Done when: handler tests cover AC-1, AC-2, AC-3. Response never contains the password hash.
@@ -222,3 +222,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P0-7 | `.github/workflows/ci.yml` added with lint, unit tests, and integration tests with postgres:17-alpine service |
 | 2026-11-04 | P1-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestUserRepo_CreateAndFind, TestUserRepo_FindByEmail_NotFound); migration 00002_create_users.sql with citext and sqlc generated code |
 | 2026-11-04 | P1-2 | `go test -race ./internal/auth/...` PASS (10 test cases: valid register, short password, invalid email variants, duplicate email, valid login, wrong password, unknown email with same error, expired token, tampered token, RS256 algorithm rejection) |
+| 2026-11-04 | P1-3 | `go test -race -run TestHandler ./internal/auth/...` PASS (AC-1 register 201 without password hash, AC-2 duplicate email 409 email_taken, AC-3 invalid credentials 401 for wrong password and unknown email) |
