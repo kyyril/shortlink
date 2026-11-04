@@ -2,9 +2,13 @@ package link
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,9 +34,10 @@ type ClickRecorder interface {
 
 // Handler handles HTTP requests for the links domain.
 type Handler struct {
-	svc      LinkService
-	recorder ClickRecorder
-	baseURL  string // e.g. "https://short.ly" — used to build short_url
+	svc         LinkService
+	recorder    ClickRecorder
+	idempotency IdempotencyStore
+	baseURL     string // e.g. "https://short.ly" — used to build short_url
 }
 
 // NewHandler returns a new Handler.
@@ -51,6 +56,13 @@ type HandlerOption func(*Handler)
 func WithClickRecorder(r ClickRecorder) HandlerOption {
 	return func(h *Handler) {
 		h.recorder = r
+	}
+}
+
+// WithIdempotencyStore attaches an idempotency store for POST /v1/links.
+func WithIdempotencyStore(store IdempotencyStore) HandlerOption {
+	return func(h *Handler) {
+		h.idempotency = store
 	}
 }
 
@@ -97,10 +109,35 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+
 	var req createRequest
 	if err := httpx.DecodeJSON(w, r, &req); err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+
+	rawBody, _ := json.Marshal(req)
+	hBytes := sha256.Sum256(rawBody)
+	reqHash := hex.EncodeToString(hBytes[:])
+
+	// Check idempotency replay if key present
+	if idempotencyKey != "" && h.idempotency != nil {
+		rec, err := h.idempotency.Get(r.Context(), idempotencyKey, userID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if rec != nil {
+			if rec.RequestHash != reqHash {
+				httpx.WriteProblem(w, r, http.StatusUnprocessableEntity, "idempotency_conflict", "idempotency key was previously used with a different request body")
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(rec.StatusCode)
+			_, _ = w.Write([]byte(rec.ResponseBody))
+			return
+		}
 	}
 
 	l, err := h.svc.Create(r.Context(), CreateInput{
@@ -114,7 +151,23 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = httpx.EncodeJSON(w, http.StatusCreated, h.toLinkResponse(l))
+	resp := h.toLinkResponse(l)
+	respBytes, _ := json.Marshal(resp)
+
+	if idempotencyKey != "" && h.idempotency != nil {
+		_ = h.idempotency.Save(r.Context(), IdempotencyRecord{
+			Key:          idempotencyKey,
+			UserID:       userID,
+			RequestHash:  reqHash,
+			StatusCode:   http.StatusCreated,
+			ResponseBody: string(respBytes),
+			CreatedAt:    time.Now().UTC(),
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_, _ = w.Write(respBytes)
 }
 
 // List handles GET /v1/links.

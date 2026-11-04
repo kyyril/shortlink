@@ -16,6 +16,15 @@ type Click struct {
 	ClickedAt time.Time `json:"clicked_at"`
 }
 
+type IdempotencyKey struct {
+	Key          string    `json:"key"`
+	UserID       uuid.UUID `json:"user_id"`
+	RequestHash  string    `json:"request_hash"`
+	StatusCode   int32     `json:"status_code"`
+	ResponseBody string    `json:"response_body"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type Link struct {
 	ID        uuid.UUID  `json:"id"`
 	UserID    uuid.UUID  `json:"user_id"`

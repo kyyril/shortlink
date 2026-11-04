@@ -15,11 +15,13 @@ type Querier interface {
 	CountTotalClicks(ctx context.Context, linkID uuid.UUID) (int64, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteOwnedLink(ctx context.Context, arg DeleteOwnedLinkParams) error
+	GetIdempotencyKey(ctx context.Context, arg GetIdempotencyKeyParams) (IdempotencyKey, error)
 	GetLinkByCode(ctx context.Context, code string) (Link, error)
 	GetOwnedLink(ctx context.Context, arg GetOwnedLinkParams) (Link, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	InsertClicks(ctx context.Context, arg []InsertClicksParams) (int64, error)
+	InsertIdempotencyKey(ctx context.Context, arg InsertIdempotencyKeyParams) error
 	InsertLink(ctx context.Context, arg InsertLinkParams) error
 	ListLinksAfter(ctx context.Context, arg ListLinksAfterParams) ([]Link, error)
 	ListLinksFirstPage(ctx context.Context, arg ListLinksFirstPageParams) ([]Link, error)
