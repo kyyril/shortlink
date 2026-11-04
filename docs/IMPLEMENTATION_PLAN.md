@@ -15,7 +15,7 @@ Build order, dependencies, and progress. Requirements are in `PRD.md`. Design is
 | Phase | Name | Status |
 | --- | --- | --- |
 | P0 | Foundation | done |
-| P1 | Authentication | not started |
+| P1 | Authentication | in progress |
 | P2 | Links CRUD | not started |
 | P3 | Redirect | not started |
 | P4 | Click recording and stats | not started |
@@ -69,7 +69,7 @@ Goal: a running server with config, logging, middleware, database connection, an
 
 Goal: register, login, protected routes.
 
-- [ ] **P1-1 Users table and repository**
+- [x] **P1-1 Users table and repository**
   - Depends on: P0-6
   - Output: migration for `users` (with `citext` extension), sqlc queries, `store` user repository. Unique violation maps to `auth.ErrEmailTaken`.
   - Done when: integration tests cover create, find by email (case-insensitive), duplicate email.
@@ -220,3 +220,4 @@ Add one line per completed task. Newest at the bottom.
 | 2026-11-04 | P0-5 | `go test -race ./internal/app/...` PASS (TestApp_GracefulShutdown_SlowRequestCompletes, TestHealthz_AlwaysReturns200OK, TestReadyz_NotReady_Returns503); `go build ./cmd/api` exit 0 |
 | 2026-11-04 | P0-6 | `go test -race -tags=integration ./internal/app/...` PASS (AC-16 TestReadiness_WithDatabase_AC16: /readyz 200 with DB up, 503 with DB down, /healthz stays 200); goose migrations verified up/down |
 | 2026-11-04 | P0-7 | `.github/workflows/ci.yml` added with lint, unit tests, and integration tests with postgres:17-alpine service |
+| 2026-11-04 | P1-1 | `go test -race -tags=integration ./internal/store/...` PASS (TestUserRepo_CreateAndFind, TestUserRepo_FindByEmail_NotFound); migration 00002_create_users.sql with citext and sqlc generated code |
