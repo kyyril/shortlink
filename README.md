@@ -11,6 +11,8 @@ The API is deployed and running live:
 - **Base URL:** `https://shortlink-production-1c53.up.railway.app`
 - **Application Hosting:** [Railway](https://railway.com) (Docker container on serverless infrastructure)
 - **Database:** [Neon](https://neon.tech) (Serverless PostgreSQL 17)
+- **Interactive Swagger UI (Online):** View and execute API calls directly via [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/kyyril/shortlink/main/api/openapi.yaml)
+- **Local Swagger UI:** `http://localhost:8081` (included in `docker compose up -d`)
 - **Liveness Probe:** `https://shortlink-production-1c53.up.railway.app/healthz`
 - **Readiness Probe:** `https://shortlink-production-1c53.up.railway.app/readyz`
 - **Demo Redirect:** `https://shortlink-production-1c53.up.railway.app/repo` -> redirects (`302`) to this GitHub repository
@@ -131,6 +133,10 @@ All configuration is loaded from environment variables:
 ## API overview
 
 Full OpenAPI 3.0 specification available in `api/openapi.yaml`.
+
+You can explore and test the endpoints interactively via:
+- **Online Swagger UI:** Open [Swagger Editor with Shortlink Spec](https://editor.swagger.io/?url=https://raw.githubusercontent.com/kyyril/shortlink/main/api/openapi.yaml) to inspect schemas and run requests against the live production server.
+- **Local Swagger UI:** Run `docker compose up -d` and visit `http://localhost:8081`.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
