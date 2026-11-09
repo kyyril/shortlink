@@ -243,6 +243,7 @@ api/
   ├── openapi.yaml          # OpenAPI 3.0 API contract (single source of truth)
   └── embed.go              # Embeds openapi.yaml into the binary at build time
 docs/
+  ├── PANDUAN.md            # Panduan lengkap proyek, struktur folder & cara pakai (Bahasa Indonesia)
   ├── ARCHITECTURE.md       # Layers, packages, data model, decisions & trade-offs
   ├── PRD.md                # Product requirements and acceptance criteria
   ├── SYSTEM_DESIGN.md      # System design deep-dive (capacity, evolution path, interview prep)
@@ -258,6 +259,7 @@ Design and engineering documents live in the [`docs/`](docs/) folder:
 
 | Document | Purpose |
 | --- | --- |
+| [`docs/PANDUAN.md`](docs/PANDUAN.md) | Panduan lengkap penjelasan proyek, struktur folder, fitur & cara penggunaan (Bahasa Indonesia) |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layers, packages, data model, middleware order, error model, decisions & trade-offs |
 | [`docs/PRD.md`](docs/PRD.md) | Product requirements, acceptance criteria, and non-goals |
 | [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md) | System design deep-dive: capacity estimation, evolution path at scale, interview Q&A |
