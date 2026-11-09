@@ -4,6 +4,8 @@ info:
   description: High-performance URL shortener REST API reference implementation in Go.
   version: 1.0.0
 servers:
+  - url: https://shortlink-production-1c53.up.railway.app
+    description: Production server (Railway)
   - url: http://localhost:8080
     description: Local development server
 
