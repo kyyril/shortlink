@@ -47,11 +47,11 @@ func TestClickRepo_BatchInsertAndStats(t *testing.T) {
 
 	testLink := newTestLink(t, userRepo, linkRepo)
 
-	// Base time in UTC: 2 days ago, 1 day ago, today
-	now := time.Now().UTC()
-	day1 := now.Add(-48 * time.Hour)
-	day2 := now.Add(-24 * time.Hour)
-	day3 := now
+	// Base time in UTC: truncate to midnight so events stay strictly within their intended days.
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	day1 := today.AddDate(0, 0, -2).Add(10 * time.Hour)
+	day2 := today.AddDate(0, 0, -1).Add(10 * time.Hour)
+	day3 := today.Add(10 * time.Hour)
 
 	events := []click.Event{
 		{LinkID: testLink.ID, ClickedAt: day1},
@@ -78,7 +78,7 @@ func TestClickRepo_BatchInsertAndStats(t *testing.T) {
 
 	// 3. ClicksPerDay
 	// Note: Days with zero clicks are omitted by the SQL query (documented choice).
-	since := now.Add(-72 * time.Hour)
+	since := today.AddDate(0, 0, -3)
 	daily, err := clickRepo.ClicksPerDay(ctx, testLink.ID, since)
 	if err != nil {
 		t.Fatalf("ClicksPerDay: %v", err)
